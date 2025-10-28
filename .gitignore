@@ -1,6 +1,8 @@
 # Compiled source files
-[^.]*
 *.exe
+*.out
+*.debug
+*.strict
 
 # Input/output files
 *.in
