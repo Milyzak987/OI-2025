@@ -1,3 +1,14 @@
+# Compiled source files
+[^.]*
 *.exe
+
+# Input/output files
 *.in
 *.out
+
+# VS Code files
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
