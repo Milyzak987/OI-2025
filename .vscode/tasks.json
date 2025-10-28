@@ -1,0 +1,105 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Compile (OI)",
+      "type": "shell",
+      "command": "g++",
+      "args": [
+        "-O3",
+        "-static",
+        "-std=c++23",
+        "${file}",
+        "-o",
+        "${fileDirname}/${fileBasenameNoExtension}"
+      ],
+      "group": { "kind": "build", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": ["$gcc"]
+    },
+
+    {
+      "label": "Compile (Sanitizers + Warnings)",
+      "type": "shell",
+      "command": "g++",
+      "args": [
+        "-std=c++23",
+        "-g",
+        "-O1",
+        "-fno-omit-frame-pointer",
+        "-fno-sanitize-recover=all",
+        "-Wall",
+        "-Wextra",
+        "-pedantic",
+        "-Wshadow",
+        "-Wformat=2",
+        "-Wfloat-equal",
+        "-Wconversion",
+        "-Wlogical-op",
+        "-Wshift-overflow=2",
+        "-Wduplicated-cond",
+        "-Wcast-qual",
+        "-Wcast-align",
+        "${file}",
+        "-o",
+        "${fileDirname}/${fileBasenameNoExtension}.debug"
+      ],
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": ["$gcc"]
+    },
+
+    {
+      "label": "Compile (Strict: GLIBCXX_DEBUG + Fortify)",
+      "type": "shell",
+      "command": "g++",
+      "args": [
+        "-std=c++23",
+        "-g",
+        "-O1",
+        "-fno-omit-frame-pointer",
+        "-fno-sanitize-recover=all",
+        "-Wall",
+        "-Wextra",
+        "-pedantic",
+        "-Wshadow",
+        "-Wformat=2",
+        "-Wfloat-equal",
+        "-Wconversion",
+        "-Wlogical-op",
+        "-Wshift-overflow=2",
+        "-Wduplicated-cond",
+        "-Wcast-qual",
+        "-Wcast-align",
+        "-D_GLIBCXX_DEBUG",
+        "-D_GLIBCXX_DEBUG_PEDANTIC",
+        "-D_FORTIFY_SOURCE=2",
+        "${file}",
+        "-o",
+        "${fileDirname}/${fileBasenameNoExtension}.debug.strict"
+      ],
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": ["$gcc"]
+    },
+
+    {
+      "label": "Run (OI binary)",
+      "type": "shell",
+      "command": "${fileDirname}/${fileBasenameNoExtension}",
+      "presentation": { "reveal": "always", "panel": "shared", "echo": true }
+    },
+
+    {
+      "label": "Run (Debug binary)",
+      "type": "shell",
+      "command": "${fileDirname}/${fileBasenameNoExtension}.debug",
+      "presentation": { "reveal": "always", "panel": "shared", "echo": true }
+    },
+
+    {
+      "label": "Run (Strict Debug binary)",
+      "type": "shell",
+      "command": "${fileDirname}/${fileBasenameNoExtension}.debug.strict",
+      "presentation": { "reveal": "always", "panel": "shared", "echo": true }
+    }
+  ]
+}
