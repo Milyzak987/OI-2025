@@ -1,152 +1,118 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-const int MAXN = 1005;
-char grid[MAXN][MAXN];
-int dist[MAXN][MAXN];
-int cnt[MAXN * MAXN];
-int suf[MAXN * MAXN];
+const int N = 1005;
+char g[N][N];
+int d[N][N];
 
-struct SegTree {
-    struct Node {
-        int sum;
-        int best;
-        int bestZero;
-    };
-    static constexpr int NEG = -1000000000;
-    int n = 0;
-    vector<Node> tree;
+struct Seg {
+    struct Node { int s, b, bz;};
+    vector<Node> t;
+    int n;
+    static const int NEG = -1e9;
 
-    Node merge(const Node &L, const Node &R) const {
-        Node res;
-        res.sum = L.sum + R.sum;
-        int candidateRight = R.best;
-        int candidateLeft = (L.best != NEG ? L.best + R.sum : NEG);
-        int candidateLeftZero = (R.sum > 0 && L.bestZero != NEG) ? L.bestZero + R.sum : NEG;
-        res.best = max(candidateRight, max(candidateLeft, candidateLeftZero));
-        int candidateZero = (R.sum == 0 ? L.bestZero : NEG);
-        res.bestZero = max(R.bestZero, candidateZero);
-        return res;
+    Node merge(Node a, Node b) {
+        return {a.s + b.s, max({b.b, a.b + b.s, (b.s > 0 && a.bz != NEG ? a.bz + b.s : NEG)}),
+                max(b.bz, b.s == 0 ? a.bz : NEG)};
     }
 
-    void build(int idx, int l, int r, const vector<int> &cnt) {
+    void build(int i, int l, int r, const vector<int>& c) {
         if (l == r) {
-            int c = cnt[l];
-            tree[idx].sum = c;
-            tree[idx].best = (c > 0 ? l + c - 1 : NEG);
-            tree[idx].bestZero = (c == 0 ? l - 1 : NEG);
+            int x = c[l];
+            t[i] = {x, x > 0 ? l + x - 1 : NEG, x == 0 ? l - 1 : NEG};
             return;
         }
-        int mid = (l + r) / 2;
-        build(idx * 2, l, mid, cnt);
-        build(idx * 2 + 1, mid + 1, r, cnt);
-        tree[idx] = merge(tree[idx * 2], tree[idx * 2 + 1]);
+        int m = (l + r) / 2;
+        build(i * 2, l, m, c);
+        build(i * 2 + 1, m + 1, r, c);
+        t[i] = merge(t[i * 2], t[i * 2 + 1]);
     }
 
-    void init(const vector<int> &cnt) {
-        n = cnt.size();
-        if (n == 0) {
-            tree.clear();
+    void init(const vector<int>& c) {
+        n = c.size();
+        if (!n) {
+            t.clear();
             return;
         }
-        tree.assign(4 * n, Node{0, NEG, NEG});
-        build(1, 0, n - 1, cnt);
+        t.assign(4 * n, {0, NEG, NEG});
+        build(1, 0, n - 1, c);
     }
 
-    void update(int idx, int l, int r, int pos, int delta) {
+    void upd(int i, int l, int r, int p, int v) {
         if (l == r) {
-            tree[idx].sum += delta;
-            int c = tree[idx].sum;
-            tree[idx].best = (c > 0 ? l + c - 1 : NEG);
-            tree[idx].bestZero = (c == 0 ? l - 1 : NEG);
+            t[i].s += v;
+            int x = t[i].s;
+            t[i].b = x > 0 ? l + x - 1 : NEG;
+            t[i].bz = x == 0 ? l - 1 : NEG;
             return;
         }
-        int mid = (l + r) / 2;
-        if (pos <= mid) update(idx * 2, l, mid, pos, delta);
-        else update(idx * 2 + 1, mid + 1, r, pos, delta);
-        tree[idx] = merge(tree[idx * 2], tree[idx * 2 + 1]);
+        int m = (l + r) / 2;
+        if (p <= m)
+            upd(i * 2, l, m, p, v);
+        else
+            upd(i * 2 + 1, m + 1, r, p, v);
+        t[i] = merge(t[i * 2], t[i * 2 + 1]);
     }
 
-    void update(int pos, int delta) {
-        if (n == 0) return;
-        update(1, 0, n - 1, pos, delta);
-    }
+    void upd(int p, int v) { if (n) upd(1, 0, n - 1, p, v); }
 
-    int getAnswer() const {
-        if (n == 0 || tree.empty()) return 0;
-        const Node &res = tree[1];
-        return res.sum > 0 ? res.best : 0;
-    }
+    int get() { return n && t[1].s > 0 ? t[1].b : 0; }
 };
 
-int solve(int maxDist) {
-    int ans = 0;
-    for (int d = 0; d <= maxDist; d++)
-        if (suf[d]) ans = max(ans, d + suf[d] - 1);
-    return ans;
-}
-
 int main() {
-    ios::sync_with_stdio(false);
+    ios::sync_with_stdio(0);
     cin.tie(0);
 
     int n, q;
     cin >> n >> q;
-
     for (int i = 0; i < n; i++) {
         string s;
         cin >> s;
-        for (int j = 0; j < n; j++) {
-            dist[i][j] = -1;
-            grid[i][j] = s[j];
-        }
+        for (int j = 0; j < n; j++) g[i][j] = s[j], d[i][j] = -1;
     }
 
-    int dx[4] = {1, -1, 0, 0}, dy[4] = {0, 0, 1, -1};
     queue<pair<int, int>> qu;
-    dist[0][0] = 0;
+    d[0][0] = 0;
     qu.push({0, 0});
+    int dx[4] = {1, -1, 0, 0}, dy[4] = {0, 0, 1, -1};
     while (!qu.empty()) {
         auto [x, y] = qu.front();
         qu.pop();
-        for (int d = 0; d < 4; d++) {
-            int nx = x + dx[d], ny = y + dy[d];
-            if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
-            if (grid[nx][ny] == '#' || dist[nx][ny] != -1) continue;
-            dist[nx][ny] = dist[x][y] + 1;
+        for (int k = 0; k < 4; k++) {
+            int nx = x + dx[k], ny = y + dy[k];
+            if (nx < 0 || ny < 0 || nx >= n || ny >= n || g[nx][ny] == '#' || d[nx][ny] != -1) continue;
+            d[nx][ny] = d[x][y] + 1;
             qu.push({nx, ny});
         }
     }
 
-    int maxDist = 0;
+    int md = 0;
     for (int i = 0; i < n; i++)
         for (int j = 0; j < n; j++)
-            if (grid[i][j] != '#' && dist[i][j] > maxDist) maxDist = dist[i][j];
+            if (g[i][j] != '#') md = max(md, d[i][j]);
 
-    vector<int> cntDist(maxDist + 1, 0);
+    vector<int> cnt(md + 1, 0);
     for (int i = 0; i < n; i++)
         for (int j = 0; j < n; j++)
-            if (grid[i][j] == 'F' && dist[i][j] != -1)
-                cntDist[dist[i][j]]++;
+            if (g[i][j] == 'F' && d[i][j] != -1) cnt[d[i][j]]++;
 
-    SegTree seg;
-    seg.init(cntDist);
+    Seg seg;
+    seg.init(cnt);
+    cout << seg.get() << "\n";
 
-    cout << seg.getAnswer() << "\n";
-
-    for (int i = 0; i < q; i++) {
+    while (q--) {
         int x, y;
         cin >> x >> y;
         x--;
         y--;
-        int d = dist[x][y];
-        if (grid[x][y] == 'F') {
-            if (d != -1) seg.update(d, -1);
-            grid[x][y] = '.';
+        int dd = d[x][y];
+        if (g[x][y] == 'F') {
+            if (dd != -1) seg.upd(dd, -1);
+            g[x][y] = '.';
         } else {
-            if (d != -1) seg.update(d, 1);
-            grid[x][y] = 'F';
+            if (dd != -1) seg.upd(dd, 1);
+            g[x][y] = 'F';
         }
-        cout << seg.getAnswer() << "\n";
+        cout << seg.get() << "\n";
     }
 }
