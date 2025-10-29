@@ -7,6 +7,9 @@
 # Input/output files
 *.in
 *.out
+*.zip
+*.tar.gz
+*.rar
 
 # VS Code files
 .vscode/*
