@@ -1,13 +1,15 @@
 #include <bits/stdc++.h>
 using namespace std;
 
+const int MAXN = 1e6;
+
 int main() {
-    ios::sync_with_stdio(false);
-    cin.tie(nullptr);
+    ios_base::sync_with_stdio(0);
+    cin.tie(0);
 
     random_device rd;
     mt19937 gen(rd());
-    uniform_int_distribution<int> dist(1, 10000);
+    uniform_int_distribution<int> dist(1, MAXN);
 
     for (int i = 1; i <= 10000; i++) {
         string filename = "rand1000/test" + to_string(i) + ".in";
