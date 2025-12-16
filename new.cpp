@@ -7,25 +7,50 @@ const int MAXT = 1000005; // Max value T
 const int MAXN = 300005;  // Max N and Q
 const int R = 1 << 19;    // Power of 2 > 300,000
 
-// Tree 1: Stores {Max, Min}
-// first = Maximum value in range
-// second = Minimum value in range
+// Tree 1: {Max, Min}
 pii treeMinMax[2 * R];
 
-// Tree 2: Stores Maximum "Previous Occurrence" Index
+// Tree 2: Max Previous Index
 int treePrev[2 * R];
 
-// Sets to track positions of each value 1..T
+// Sets for positions
 set<int> positions[MAXT];
-// Array to keep track of current values for updates
-int S[MAXN];
+int S[MAXN]; // Store current values
 
-// --- Segment Tree 1 (Min/Max) Operations ---
+// --- Helper Functions to avoid Iterator Spaghetti ---
+
+// Find the index of 'val' that appears immediately BEFORE 'idx'
+// Returns 0 if no such index exists.
+int getPredecessor(int val, int idx) {
+    // lower_bound returns iterator to the first element >= idx
+    auto it = positions[val].lower_bound(idx);
+    
+    // If it's the beginning, there is no predecessor
+    if (it == positions[val].begin()) return 0;
+    
+    // Otherwise, step back one position
+    it--;
+    return *it;
+}
+
+// Find the index of 'val' that appears immediately AFTER 'idx'
+// Returns 0 if no such index exists.
+int getSuccessor(int val, int idx) {
+    // upper_bound returns iterator to the first element > idx
+    auto it = positions[val].upper_bound(idx);
+    
+    // If it's the end, there is no successor
+    if (it == positions[val].end()) return 0;
+    
+    return *it;
+}
+
+// --- Segment Tree Operations (Your Structure) ---
 
 void updateMinMax(int i, int x) {
     i += R;
-    treeMinMax[i].first = x;   // Max
-    treeMinMax[i].second = x;  // Min
+    treeMinMax[i].first = x;    // Max
+    treeMinMax[i].second = x;   // Min
     i /= 2;
     while (i > 0) {
         treeMinMax[i].first = max(treeMinMax[i * 2].first, treeMinMax[i * 2 + 1].first);
@@ -53,8 +78,6 @@ pii queryMinMax(int a, int b) {
     }
     return {resMax, resMin};
 }
-
-// --- Segment Tree 2 (Previous Index) Operations ---
 
 void updatePrev(int i, int x) {
     i += R;
@@ -88,21 +111,21 @@ int main() {
     int n, t, q;
     if (!(cin >> n >> t >> q)) return 0;
 
-    // Initialize MinMax Tree with identity values
-    // Important: Leaves must be (0, INT_MAX) initially so min() works correctly
-    for (int i = 0; i < 2 * R; i++) {
+    // Initialization: Fill MinMax tree with Safe Defaults
+    // (0, INT_MAX) ensures unused leaves don't break min/max queries
+    for(int i = 0; i < 2 * R; i++) {
         treeMinMax[i] = {0, INT_MAX};
         treePrev[i] = 0;
     }
 
-    // Read Input and Build Initial State
-    for (int i = 1; i <= n; i++) {
+    // Build Initial State
+    for(int i = 1; i <= n; i++) {
         cin >> S[i];
         updateMinMax(i, S[i]);
         positions[S[i]].insert(i);
     }
 
-    // Build Prev Tree based on initial positions
+    // Initialize Prev Tree
     for (int val = 1; val <= t; val++) {
         int last_pos = 0;
         for (int pos : positions[val]) {
@@ -111,78 +134,65 @@ int main() {
         }
     }
 
-    // Process Queries
     while (q--) {
         int type;
         cin >> type;
         
         if (type == 1) {
-            // Check Query: 1 l r
             int l, r;
             cin >> l >> r;
-
-            // Condition 1: Unique Elements
-            // If the max previous index in range [l, r] is >= l, it means 
-            // a duplicate exists within the range [l, r].
-            int max_prev = queryPrev(l, r);
-            if (max_prev >= l) {
+            
+            // 1. Uniqueness Check: Max(Prev) < l
+            if (queryPrev(l, r) >= l) {
                 cout << "NIE\n";
                 continue;
             }
 
-            // Condition 2: Contiguous Range
-            // Max - Min must equal Length - 1
+            // 2. Contiguity Check: Max - Min == Length - 1
             pii mm = queryMinMax(l, r);
-            // mm.first is MAX, mm.second is MIN
             if ((mm.first - mm.second) == (r - l)) {
                 cout << "TAK\n";
             } else {
                 cout << "NIE\n";
             }
-
-        } else {
-            // Update Query: 2 p v
+        } 
+        else {
             int p, v;
             cin >> p >> v;
             int old_v = S[p];
 
             if (old_v == v) continue;
 
-            // 1. Remove p from old_v set
-            {
-                auto it = positions[old_v].find(p);
-                int prev_idx = 0; 
-                if (it != positions[old_v].begin()) prev_idx = *prev(it);
-                
-                auto next_it = next(it);
-                if (next_it != positions[old_v].end()) {
-                    // The element after p now points to p's previous
-                    updatePrev(*next_it, prev_idx);
-                }
-                
-                positions[old_v].erase(it);
-                updatePrev(p, 0); // Clear p's prev pointer (temp)
+            // --- Step A: Remove p from old_v ---
+            // Before removing p, we must connect its neighbors:
+            // Predecessor(p) <--- connected to ---> Successor(p)
+            int old_pre = getPredecessor(old_v, p);
+            int old_suc = getSuccessor(old_v, p);
+
+            if (old_suc != 0) {
+                // The element after p now points to p's old predecessor
+                updatePrev(old_suc, old_pre);
+            }
+            positions[old_v].erase(p);
+            // Reset p's prev pointer to 0 temporarily
+            updatePrev(p, 0); 
+
+            // --- Step B: Add p to v ---
+            positions[v].insert(p);
+            
+            // Now p is in the set, find its new neighbors
+            int new_pre = getPredecessor(v, p);
+            int new_suc = getSuccessor(v, p);
+
+            // p now points to its new predecessor
+            updatePrev(p, new_pre);
+
+            if (new_suc != 0) {
+                // The element after p now points to p
+                updatePrev(new_suc, p);
             }
 
-            // 2. Add p to v set
-            {
-                positions[v].insert(p);
-                auto it = positions[v].find(p);
-                
-                int prev_idx = 0;
-                if (it != positions[v].begin()) prev_idx = *prev(it);
-                
-                // Update p to point to its new previous occurrence
-                updatePrev(p, prev_idx);
-                
-                auto next_it = next(it);
-                if (next_it != positions[v].end()) {
-                    // The element after p now points to p
-                    updatePrev(*next_it, p);
-                }
-            }
-
-            // 3. Update value array and MinMax Tree
+            // --- Step C: Update Value ---
             S[p] = v;
             updateMinMax(p, v);
         }
