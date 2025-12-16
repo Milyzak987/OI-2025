@@ -1,82 +1,50 @@
-#include <iostream>
-#include <vector>
-#include <cmath>
-#include <algorithm>
-
+#include <bits/stdc++.h>
 using namespace std;
 
-// Używamy long double dla precyzji geometrycznej
-using Real = long double;
-const Real PI = acos(-1.0L);
-const Real TWO_PI = 2.0L * PI;
-const Real EPS = 1e-11L; // Margines błędu dla floatów
-
-struct Kitten {
-    long long x, y;
-    Real angle;  // Kąt pozycyjny (gdzie kot siedzi)
-    Real spread; // Połowa kąta widzenia (odchylenie stycznych)
-};
+const int MAXN = 5e5 + 7;
+vector<int> children[MAXN];
+vector<int> sz(MAXN, 1);
+vector<double> dp(MAXN, 0.0);
 
 int main() {
-    // Szybkie wejście/wyjście (choć przy N^2 to niewiele pomoże)
-    ios_base::sync_with_stdio(false);
-    cin.tie(NULL);
+    ios_base::sync_with_stdio(0);
+    cin.tie(0);
 
-    int N;
-    long long R_in;
-    if (!(cin >> N >> R_in)) return 0;
-    Real R = (Real)R_in;
+    int n, k;
+    cin >> n >> k;
 
-    vector<Kitten> kittens(N);
+    for (int i = 2; i <= n; ++i) {
+        int p;
+        cin >> p;
+        children[p].push_back(i);
+    }
 
-    // KROK 1: Obliczenie parametrów dla każdego kota
-    for (int i = 0; i < N; ++i) {
-        cin >> kittens[i].x >> kittens[i].y;
+    double ans = 0.0;
 
-        // Dystans od środka (0,0)
-        Real dist = sqrt((Real)kittens[i].x * kittens[i].x + (Real)kittens[i].y * kittens[i].y);
+    for (int i = n; i >= 1; --i) {
+        for (int ch : children[i]) {
+            sz[i] += sz[ch];
+        }
 
-        // Kąt pozycyjny (atan2 zwraca wartość w zakresie -PI do PI)
-        kittens[i].angle = atan2((Real)kittens[i].y, (Real)kittens[i].x);
-        
-        // Jeśli atan2 zwróci ujemny kąt, zamieniamy go na zakres [0, 2PI) dla wygody
-        if (kittens[i].angle < 0) kittens[i].angle += TWO_PI;
+        if (sz[i] == 1) continue;
 
-        // Spread (odchylenie stycznych)
-        // Jeśli kot jest (teoretycznie) na granicy koła lub w środku (zgodnie z zadaniem nie jest), spread = 0
-        if (dist > R) {
-            kittens[i].spread = acos(R / dist);
-        } else {
-            kittens[i].spread = 0.0;
+        double denom = (double)(sz[i] - 1);
+
+        double trig = 1.0 / denom;
+
+        for (int ch : children[i]) {
+            double cval = min(dp[ch], (double)sz[ch] / denom);
+            trig = max(trig, cval);
+        }
+
+        dp[i] = trig;
+
+        if (sz[i] > k) {
+            ans = max(ans, dp[i]);
         }
     }
 
-    long long count = 0;
-
-    // KROK 2: Sprawdzanie "Każdy z Każdym" (O(N^2))
-    // Dwie pętle zagnieżdżone - to jest ta "wolna" część
-    for (int i = 0; i < N; ++i) {
-        for (int j = i + 1; j < N; ++j) {
-            
-            // Obliczamy najkrótszą odległość kątową na okręgu między kotem i a kotem j
-            Real angle_diff = abs(kittens[i].angle - kittens[j].angle);
-            
-            // Jeśli różnica jest większa niż PI (180 stopni), to znaczy że krótsza droga jest "w drugą stronę"
-            if (angle_diff > PI) {
-                angle_diff = TWO_PI - angle_diff;
-            }
-
-            // Warunek widoczności oparty na stycznych:
-            // Jeśli odległość kątowa między kotami jest mniejsza niż suma ich "zasięgów" stycznych,
-            // to znaczy, że ich pola widzenia zachodzą na siebie -> widzą się.
-            // Odejmujemy EPS, bo jeśli linia tylko "dotyka" koła, to się nie liczy (nierówność ostra).
-            if (angle_diff < (kittens[i].spread + kittens[j].spread - EPS)) {
-                count++;
-            }
-        }
-    }
-
-    cout << count << endl;
+    cout << fixed << setprecision(10) << ans << "\n";
 
     return 0;
 }
