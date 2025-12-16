@@ -1,144 +1,99 @@
-#include <iostream>
-#include <vector>
-#include <algorithm>
-#include <map>
-#include <set>
-
+#include <bits/stdc++.h>
 using namespace std;
+typedef long long ll;
+typedef long double ld;
+typedef pair<int, int> pii;
 
-const int INF = -1e9;
+const int MAXT = 1e6 + 7;
+const int R = 1 << 19;
+pii treeMinMax[2 * R];
+int treePrev[2 * R];
+set<int> positions[MAXT];
 
-class DistinctCheckerIterative {
-private:
-    int n;
-    vector<int> arr;
-    vector<int> tree; // Segment Tree array
-    map<int, set<int>> positions; // Stores indices for each value
-
-    // Iterative Build
-    void build_tree(const vector<int>& prev_occurrence) {
-        // Initialize leaves
-        for (int i = 0; i < n; ++i) {
-            tree[n + i] = prev_occurrence[i];
-        }
-        // Calculate parents
-        for (int i = n - 1; i > 0; --i) {
-            tree[i] = max(tree[2 * i], tree[2 * i + 1]);
-        }
+void updateMinMax(int i, int x) {
+    i += R;
+    treeMinMax[i].first = x;
+    treeMinMax[i].second = x;
+    i /= 2;
+    while (i > 0) {
+        treeMinMax[i].first = max(treeMinMax[i * 2].first, treeMinMax[i * 2 + 1].first);
+        treeMinMax[i].second = min(treeMinMax[i * 2].second, treeMinMax[i * 2 + 1].second);
+        i /= 2;
     }
+}
 
-    // Iterative Point Update
-    // Updates the value at index `idx` (0-based) to `val`
-    void update_tree(int idx, int val) {
-        idx += n; // Move to leaf position
-        tree[idx] = val;
-        
-        // Move up to root
-        for (idx /= 2; idx >= 1; idx /= 2) {
-            tree[idx] = max(tree[2 * idx], tree[2 * idx + 1]);
-        }
+pii queryMinMax(int a, int b) {
+    int resMax = 0;
+    int resMin = INT_MAX;
+    a += R - 1;
+    b += R + 1;
+    while (a / 2 != b / 2) {
+        if (a % 2 == 0) resMax = max(resMax, treeMinMax[a + 1].first);
+        if (b % 2 == 1) resMax = max(resMax, treeMinMax[b - 1].first);
+        if (a % 2 == 0) resMin = min(resMin, treeMinMax[a + 1].second);
+        if (b % 2 == 1) resMin = min(resMin, treeMinMax[b - 1].second);
+        a /= 2;
+        b /= 2;
     }
+    return {resMax, resMin};
+}
 
-    // Iterative Range Query
-    // Returns max value in range [l, r] inclusive
-    int query_max(int l, int r) {
-        int res = INF;
-        // Loop processes the range. 
-        // l is the left bound, r is the right bound.
-        for (l += n, r += n; l <= r; l /= 2, r /= 2) {
-            // If l is odd, it's the right child, so include it and move inward
-            if (l % 2 == 1) res = max(res, tree[l++]);
-            // If r is even, it's the left child, so include it and move inward
-            if (r % 2 == 0) res = max(res, tree[r--]);
-        }
-        return res;
+void updatePrev(int i, int x) {
+    i += R;
+    treePrev[i] = x;
+    i /= 2;
+    while (i > 0) {
+        treePrev[i] = max(treePrev[i * 2], treePrev[i * 2 + 1]);
+        i /= 2;
     }
+}
 
-public:
-    DistinctCheckerIterative(const vector<int>& input_arr) {
-        arr = input_arr;
-        n = arr.size();
-        tree.resize(2 * n, INF); // Size is 2*n for iterative tree
-        
-        vector<int> prev_occurrence(n);
-
-        // Precompute positions and prev array
-        for (int i = 0; i < n; ++i) {
-            if (positions[arr[i]].empty()) {
-                prev_occurrence[i] = -1;
-            } else {
-                prev_occurrence[i] = *positions[arr[i]].rbegin();
-            }
-            positions[arr[i]].insert(i);
-        }
-
-        build_tree(prev_occurrence);
+int queryPrev(int a, int b) {
+    int res = 0;
+    a += R - 1;
+    b += R + 1;
+    while (a / 2 != b / 2) {
+        if (a % 2 == 0) res = max(res, treePrev[a + 1]);
+        if (b % 2 == 1) res = max(res, treePrev[b - 1]);
+        a /= 2;
+        b /= 2;
     }
+    return res;
+}
 
-    // Returns true if subarray [l, r] has NO repeating values
-    bool hasUniqueValues(int l, int r) {
-        if (l < 0 || r >= n || l > r) return false;
-        
-        // Check if the maximum 'prev' index in this range is strictly to the left of 'l'
-        int max_prev = query_max(l, r);
-        return max_prev < l;
-    }
 
-    // Update value at index idx to new_val
-    void update(int idx, int new_val) {
-        if (idx < 0 || idx >= n) return;
-        int old_val = arr[idx];
-        if (old_val == new_val) return;
-
-        // --- Step 1: Remove idx from old_val positions ---
-        auto it = positions[old_val].find(idx);
-        int old_prev = -1;
-        int old_next = -1;
-
-        if (it != positions[old_val].begin()) old_prev = *std::prev(it);
-        if (std::next(it) != positions[old_val].end()) old_next = *std::next(it);
-
-        positions[old_val].erase(it);
-
-        // If there was a next occurrence, it must now point to old_prev
-        if (old_next != -1) {
-            update_tree(old_next, old_prev);
-        }
-
-        // --- Step 2: Insert idx into new_val positions ---
-        arr[idx] = new_val;
-        positions[new_val].insert(idx);
-        it = positions[new_val].find(idx);
-
-        int new_prev = -1;
-        int new_next = -1;
-
-        if (it != positions[new_val].begin()) new_prev = *std::prev(it);
-        if (std::next(it) != positions[new_val].end()) new_next = *std::next(it);
-
-        // Update current index's 'prev'
-        update_tree(idx, new_prev);
-
-        // If there is a next occurrence, it must now point to idx
-        if (new_next != -1) {
-            update_tree(new_next, idx);
-        }
-    }
-};
 
 int main() {
-    // Example Usage
-    vector<int> data = {1, 2, 3, 2, 1, 4};
-    DistinctCheckerIterative solver(data);
+    ios_base::sync_with_stdio(0);
+    cin.tie(0);
 
-    cout << "Range [1, 2] (2, 3): " << (solver.hasUniqueValues(1, 2) ? "Unique" : "Repeating") << endl; 
-    
-    cout << "Range [1, 3] (2, 3, 2): " << (solver.hasUniqueValues(1, 3) ? "Unique" : "Repeating") << endl; 
-    
-    cout << "Updating index 3 to 5..." << endl;
-    solver.update(3, 5); // Array becomes: 1, 2, 3, 5, 1, 4
-    
-    cout << "Range [1, 3] (2, 3, 5): " << (solver.hasUniqueValues(1, 3) ? "Unique" : "Repeating") << endl;
+    int n, t, q;
+    cin >> n >> t >> q;
+
+    for(int i = 1; i <= n; i++) {
+        int x;
+        cin >> x;
+        updateMinMax(i, x);
+        positions[x].insert(i);
+    }
+
+    for (int val = 1; val <= q; val++) {
+        int last_pos = 0;
+        for (int pos : positions[val]) {
+            updatePrev(pos, last_pos);
+            last_pos = pos;
+        }
+    }
+
+    while (t--) {
+        int a, b, c;
+        cin >> a >> b >> c;
+        if (a == 1) {
+            cout << queryMinMax(b, c).first << " " << queryMinMax(b, c).second << "\n";
+        } else {
+            updateMinMax(b, c);
+        }
+    }
 
     return 0;
 }
