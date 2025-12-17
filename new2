@@ -1,0 +1,136 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <set>
+
+using namespace std;
+
+// Function to solve Subtask 1 (Graph is a path: N -> N-1 -> ... -> 1)
+// This handles multiple queries efficiently for the specific line graph case.
+void solve_subtask_1(int n, int q) {
+    for (int k = 0; k < q; ++k) {
+        int t, x;
+        if (!(cin >> t >> x)) break;
+        
+        vector<int> forbidden(x);
+        for (int i = 0; i < x; ++i) {
+            cin >> forbidden[i];
+        }
+        
+        // We want the smallest node index v (1 <= v <= t) that is NOT forbidden.
+        // Sort forbidden list to find the "MEX" (Minimum Excluded value) efficiently.
+        sort(forbidden.begin(), forbidden.end());
+        
+        int best_target = 1;
+        for (int blocked_node : forbidden) {
+            if (blocked_node == best_target) {
+                best_target++;
+            } else if (blocked_node > best_target) {
+                // We found a gap; best_target is valid and not in the list
+                break;
+            }
+        }
+        
+        // If the best target is beyond our start node T, we can't stop anywhere.
+        if (best_target > t) {
+            cout << -1 << "\n";
+        } else {
+            // Path length on a line is simply Start - End
+            cout << (t - best_target) << "\n";
+        }
+    }
+}
+
+// Function to solve Subtasks 2 and 3 (General Graph but Q=1)
+// Uses DP / Longest Path in DAG logic.
+void solve_single_query(int n, int start_node, const vector<vector<int>>& adj, 
+                       const vector<int>& forbidden_list) {
+    
+    // Mark forbidden nodes for O(1) lookup
+    vector<bool> is_forbidden(n + 1, false);
+    for (int c : forbidden_list) {
+        is_forbidden[c] = true;
+    }
+
+    // dp[i] = length of longest path from start_node to i
+    // Initialize with -1 (unreachable)
+    vector<int> dist(n + 1, -1);
+    
+    // Base case
+    dist[start_node] = 0;
+
+    // Process nodes in topological order.
+    // Since edges go from High -> Low, iterating N down to 1 is a valid topo order.
+    for (int u = n; u >= 1; --u) {
+        // If u is reachable
+        if (dist[u] != -1) {
+            for (int v : adj[u]) {
+                // Relaxation step
+                if (dist[u] + 1 > dist[v]) {
+                    dist[v] = dist[u] + 1;
+                }
+            }
+        }
+    }
+
+    // Find the max dist to any node that is NOT forbidden
+    int max_len = -1;
+    
+    // We only care about nodes reachable from start_node.
+    // Also, we must end at a valid (non-forbidden) node.
+    // Note: The start node itself can be the end of the path (length 0) 
+    // if it is not forbidden.
+    for (int i = 1; i <= n; ++i) {
+        if (dist[i] != -1 && !is_forbidden[i]) {
+            if (dist[i] > max_len) {
+                max_len = dist[i];
+            }
+        }
+    }
+
+    cout << max_len << "\n";
+}
+
+int main() {
+    // Optimization for faster I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m, q;
+    if (!(cin >> n >> m >> q)) return 0;
+
+    // Read Graph Edges
+    // Although Subtask 1 has a specific structure, we can store it generally
+    // if needed, but for Q > 1 we assume the Subtask 1 logic avoids graph traversal.
+    vector<vector<int>> adj(n + 1);
+    for (int i = 0; i < m; ++i) {
+        int u, v; // Edge v -> u (S -> E in problem statement, S > E)
+        cin >> u >> v; 
+        // Input says: "Ei, Si ... road from Si to Ei"
+        // Problem: "u, v" in standard input usually means u->v. 
+        // Let's adhere strictly to: "E, S ... road from S to E".
+        // E is the destination (lower number), S is source (higher number).
+        // Let's store adj[S].push_back(E).
+        adj[v].push_back(u); 
+    }
+
+    // LOGIC SWITCH:
+    // If Q == 1, we use the general graph solver (Subtasks 2 & 3).
+    // If Q > 1, the problem constraints for the first 3 subtasks imply 
+    // we must be in Subtask 1 (Graph is a Path).
+    
+    if (q == 1) {
+        int t, x;
+        cin >> t >> x;
+        vector<int> forbidden(x);
+        for(int i=0; i<x; ++i) cin >> forbidden[i];
+        
+        solve_single_query(n, t, adj, forbidden);
+    } else {
+        // This branch assumes Subtask 1 constraints (Linear Graph)
+        // because Subtasks 2&3 are strictly Q=1.
+        solve_subtask_1(n, q);
+    }
+
+    return 0;
+}
